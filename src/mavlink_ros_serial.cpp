@@ -95,7 +95,7 @@ ros::Publisher attitude_pub;
  * Returns the file descriptor on success or -1 on error.
  */
 
-int open_port(std::string port)
+int open_port(std::string& port)
 {
 	int fd; /* File descriptor for the port */
 	
@@ -421,15 +421,6 @@ int main(int argc, char **argv) {
 		exit (1);
 	}
 
-
-	// SETUP ROS
-	ros::NodeHandle n;
-	mavlink_sub = n.subscribe("/toMAVLINK", 1000, mavlinkCallback);
-	mavlink_pub = n.advertise<mavlink_ros::Mavlink> ("/fromMAVLINK", 1000);
-	ros::NodeHandle attitude_nh;
-	attitude_pub = attitude_nh.advertise<sensor_msgs::Imu>("/fromMAVLINK/Imu", 1000);
-
-
 	// SETUP SERIAL PORT
 
 	// Exit if opening port failed
@@ -438,7 +429,7 @@ int main(int argc, char **argv) {
 	fd = open_port(port);
 	if (fd == -1)
 	{
-		if (!silent) printf("failure, could not open port.\n");
+		if (!silent) fprintf(stderr, "failure, could not open port.\n");
 		exit(EXIT_FAILURE);
 	}
 	else
@@ -449,7 +440,7 @@ int main(int argc, char **argv) {
 	bool setup = setup_port(fd, baud, 8, 1, false, false);
 	if (!setup)
 	{
-		if (!silent) printf("failure, could not configure port.\n");
+		if (!silent) fprintf(stderr, "failure, could not configure port.\n");
 		exit(EXIT_FAILURE);
 	}
 	else
@@ -457,6 +448,14 @@ int main(int argc, char **argv) {
 		if (!silent) printf("success.\n");
 	}
 	int* fd_ptr = &fd;
+
+
+	// SETUP ROS
+	ros::NodeHandle n;
+	mavlink_sub = n.subscribe("/toMAVLINK", 1000, mavlinkCallback);
+	mavlink_pub = n.advertise<mavlink_ros::Mavlink> ("/fromMAVLINK", 1000);
+	ros::NodeHandle attitude_nh;
+	attitude_pub = attitude_nh.advertise<sensor_msgs::Imu>("/fromMAVLINK/Imu", 1000);
 
 	GThread* serial_thread;
 	GError* err;
@@ -466,8 +465,8 @@ int main(int argc, char **argv) {
 		// Only initialize g thread if not already done
 	}
 
-	// Run indefinitely while the LCM and serial threads handle the data
-	if (!silent) printf("\nREADY, waiting for serial/LCM data.\n");
+	// Run indefinitely while the ROS and serial threads handle the data
+	if (!silent) printf("\nREADY, waiting for serial/ROS data.\n");
 
 	if( (serial_thread = g_thread_create((GThreadFunc)serial_wait, (void *)fd_ptr, TRUE, &err)) == NULL)
 	{

@@ -113,7 +113,7 @@ static inline void mavlink_ros_msg_decode_and_send_${basename}(const mavlink_mes
     mavlink_ros_msg_decode_and_send_common(msg); //which now get the message to parse
     break;
     #else
-    ROS_DEBUG("unknown message type: %i", ); //if this is also not defined in common, we make some noise
+    ROS_DEBUG("unknown message type: %i", msg->msgid); //if this is also not defined in common, we make some noise
     break;
     #endif
     }

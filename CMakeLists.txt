@@ -9,7 +9,7 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
 #set(ROS_BUILD_TYPE RelWithDebInfo)
 
-
+##########    CHOOSE PLATFORM   #############
 set(PLATFORM sensesoar)
 #set(PLATFORM common)
 #set(PLATFORM ardupilotmega)
@@ -20,6 +20,8 @@ set(PLATFORM sensesoar)
 #set(PLATFORM slugs)
 #set(PLATFORM test)
 #set(PLATFORM ualberta)
+
+rosbuild_init()
 
 add_definitions("-DPLATFORM=${PLATFORM}")
 
@@ -40,7 +42,17 @@ FIND_PACKAGE(MAVLINK  REQUIRED)
 FIND_PACKAGE(GLIB2  REQUIRED)
 FIND_PACKAGE(GTHREAD2  REQUIRED)
 
-rosbuild_init()
+
+INCLUDE_DIRECTORIES(
+  ${MAVLINK_INCLUDE_DIR}
+  ${GLIB2_MAIN_INCLUDE_DIR}
+  ${GLIB2_INTERNAL_INCLUDE_DIR}
+  ${GTHREAD2_MAIN_INCLUDE_DIR}
+  ../include/
+)
+
+#messages generated with ros
+rosbuild_genmsg()
 
 # mavlink generation
 macro(generateMavlink version definitions)
@@ -58,21 +70,28 @@ macro(generateMavlink version definitions)
             DEPENDS ${definitionAbsPath} ${mavgen}
             )
         add_custom_target(${targetName} ALL DEPENDS ${targetName}-stamp)
+	add_dependencies(mavlink_ros_serial ${targetName})
     endforeach()
 endmacro()
 
+#the main executable that passes the data from the serial port to ros
+rosbuild_add_executable(mavlink_ros_serial src/mavlink_ros_serial.cpp)
+target_link_libraries(mavlink_ros_serial
+  ${GLIB2_LIBRARY}
+  ${GTHREAD2_LIBRARY}
+)
 
 # build
 set(mavgen ${CMAKE_SOURCE_DIR}/pymavlink/generator/mavgen.py)
-#set(v0.9Definitions
-#    ardupilotmega.xml
-#    common.xml
-#    minimal.xml
-#    pixhawk.xml
-#    slugs.xml
-#    test.xml
-#    ualberta.xml
-#    )
+set(v0.9Definitions
+    ardupilotmega.xml
+    common.xml
+    minimal.xml
+    pixhawk.xml
+    slugs.xml
+    test.xml
+    ualberta.xml
+    )
 #generateMavlink("0.9" "${v0.9Definitions}")
 set(v1.0Definitions
     ardupilotmega.xml
@@ -93,9 +112,6 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-rosbuild_genmsg()
-
-
 # On mac use clang++
 IF(${CMAKE_SYSTEM} MATCHES "Darwin-11.*")
     # Use clang++
@@ -110,17 +126,5 @@ ENDIF(${CMAKE_SYSTEM} MATCHES "Darwin-11.*")
 #rosbuild_add_boost_directories()
 #rosbuild_link_boost(${PROJECT_NAME} thread)
 
-INCLUDE_DIRECTORIES(
-  ${MAVLINK_INCLUDE_DIR}
-  ${GLIB2_MAIN_INCLUDE_DIR}
-  ${GLIB2_INTERNAL_INCLUDE_DIR}
-  ${GTHREAD2_MAIN_INCLUDE_DIR}
-  ../include/
-)
 
-rosbuild_add_executable(mavlink_ros_serial src/mavlink_ros_serial.cpp)
-add_dependencies(mavlink_ros_serial msggen)
-target_link_libraries(mavlink_ros_serial
-  ${GLIB2_LIBRARY}
-  ${GTHREAD2_LIBRARY}
-)
+

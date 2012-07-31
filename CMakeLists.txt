@@ -9,17 +9,25 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
 #set(ROS_BUILD_TYPE RelWithDebInfo)
 
-rosbuild_init()
 
-#set the default path for built executables to the "bin" directory
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-#set the default path for built libraries to the "lib" directory
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+set(PLATFORM sensesoar)
+#set(PLATFORM common)
+#set(PLATFORM ardupilotmega)
+#set(PLATFORM matrixpilot)
+#set(PLATFORM minimal)
+#set(PLATFORM pixhawk)
+#set(PLATFORM sensesoar)
+#set(PLATFORM slugs)
+#set(PLATFORM test)
+#set(PLATFORM ualberta)
 
-#uncomment if you have defined messages
-rosbuild_genmsg()
-#uncomment if you have defined services
-#rosbuild_gensrv()
+add_definitions("-DPLATFORM=${PLATFORM}")
+
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/include/v1.0/include")
+include_directories("${CMAKE_SOURCE_DIR}/msg_gen/cpp/include")
+include_directories("${CMAKE_SOURCE_DIR}/include/mavlink/v1.0/${PLATFORM}")
+include_directories("${CMAKE_SOURCE_DIR}/include")
+include_directories("${CMAKE_SOURCE_DIR}/include/mavlink/v1.0")
 
 SET(
   CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake
@@ -31,6 +39,62 @@ include(cmake/FindGTHREAD2.cmake)
 FIND_PACKAGE(MAVLINK  REQUIRED)
 FIND_PACKAGE(GLIB2  REQUIRED)
 FIND_PACKAGE(GTHREAD2  REQUIRED)
+
+rosbuild_init()
+
+# mavlink generation
+macro(generateMavlink version definitions)
+    foreach(definition ${definitions})
+        set(targetName ${definition}-v${version})
+        set(definitionAbsPath ${CMAKE_SOURCE_DIR}/message_definitions/v${version}/${definition})
+        message(STATUS "processing: ${definitionAbsPath}")
+        add_custom_command( 
+            OUTPUT ${targetName}-stamp
+            COMMAND ${PYTHON_EXECUTABLE} ${mavgen} --lang=ROS --wire-protocol=${version}
+                --output=include/v${version} ${definitionAbsPath}
+	    
+	    COMMAND cp -rf ${CMAKE_CURRENT_BINARY_DIR}/include/v${version}/msg ${CMAKE_SOURCE_DIR}
+            COMMAND touch ${targetName}-stamp
+            DEPENDS ${definitionAbsPath} ${mavgen}
+            )
+        add_custom_target(${targetName} ALL DEPENDS ${targetName}-stamp)
+    endforeach()
+endmacro()
+
+
+# build
+set(mavgen ${CMAKE_SOURCE_DIR}/pymavlink/generator/mavgen.py)
+#set(v0.9Definitions
+#    ardupilotmega.xml
+#    common.xml
+#    minimal.xml
+#    pixhawk.xml
+#    slugs.xml
+#    test.xml
+#    ualberta.xml
+#    )
+#generateMavlink("0.9" "${v0.9Definitions}")
+set(v1.0Definitions
+    ardupilotmega.xml
+    common.xml
+    matrixpilot.xml
+    minimal.xml
+    pixhawk.xml
+    slugs.xml
+    test.xml
+    ualberta.xml
+    sensesoar.xml
+    )
+generateMavlink("1.0" "${v1.0Definitions}")
+
+
+#set the default path for built executables to the "bin" directory
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+#set the default path for built libraries to the "lib" directory
+set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+
+rosbuild_genmsg()
+
 
 # On mac use clang++
 IF(${CMAKE_SYSTEM} MATCHES "Darwin-11.*")
@@ -55,6 +119,7 @@ INCLUDE_DIRECTORIES(
 )
 
 rosbuild_add_executable(mavlink_ros_serial src/mavlink_ros_serial.cpp)
+add_dependencies(mavlink_ros_serial msggen)
 target_link_libraries(mavlink_ros_serial
   ${GLIB2_LIBRARY}
   ${GTHREAD2_LIBRARY}

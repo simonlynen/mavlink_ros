@@ -1,0 +1,6 @@
+<launch>
+    <node name="mavlink_ros_serial" pkg="mavlink_ros" type="mavlink_ros_serial" clear_params="true" output="screen">
+	<rosparam file="$(find mavlink_ros)/params/mavlink_ros_bridge.yaml"/>
+    </node>
+</launch>
+

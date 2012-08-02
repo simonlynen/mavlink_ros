@@ -2,3 +2,5 @@ build
 bin
 msg_gen
 .DS_Store
+*.pyc
+

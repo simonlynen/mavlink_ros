@@ -35,6 +35,7 @@
 #include "ros/ros.h"
 
 #include "mavlink_ros/Mavlink.h"
+#include "params.h"
 
 #define PLATFORMINCLROSBRIDGE(x) <x/mavlink_ros_bridge.h>
 #include PLATFORMINCLROSBRIDGE(PLATFORM)
@@ -88,6 +89,9 @@ int fd;
 
 ros::Subscriber mavlink_sub;
 ros::Publisher mavlink_pub;
+
+/*some parameters*/
+mavlink_ros::FixParams* pfixparams = 0;
 
 /**
  *
@@ -315,33 +319,34 @@ void* serial_wait(void* serial_ptr)
 			if (verbose || debug)
 				ROS_INFO("Received message from serial with ID #%d (sys:%d|comp:%d):\n", message.msgid, message.sysid, message.compid);
 
-			/**
-			 * Serialize the Mavlink-ROS-message
-			 */
-			mavlink_ros::Mavlink rosmavlink_msg;
+			if(pfixparams->send_raw_mavlink){
+				/**
+				 * Serialize the Mavlink-ROS-message
+				 */
+				mavlink_ros::Mavlink rosmavlink_msg;
 
-			rosmavlink_msg.len = message.len;
-			rosmavlink_msg.seq = message.seq;
-			rosmavlink_msg.sysid = message.sysid;
-			rosmavlink_msg.compid = message.compid;
-			rosmavlink_msg.msgid = message.msgid;
-			rosmavlink_msg.fromlcm = false;
+				rosmavlink_msg.len = message.len;
+				rosmavlink_msg.seq = message.seq;
+				rosmavlink_msg.sysid = message.sysid;
+				rosmavlink_msg.compid = message.compid;
+				rosmavlink_msg.msgid = message.msgid;
+				rosmavlink_msg.fromlcm = false;
 
-			for (int i = 0; i < message.len/8; i++)
-			{
-				(rosmavlink_msg.payload64).push_back(message.payload64[i]);
+				for (int i = 0; i < message.len/8; i++)
+				{
+					(rosmavlink_msg.payload64).push_back(message.payload64[i]);
+				}
+
+				/**
+				 * Mark the ROS-Message as coming not from LCM
+				 */
+				rosmavlink_msg.fromlcm = true;
+
+				/**
+				 * Send the received MAVLink message to ROS (topic: mavlink, see main())
+				 */
+				mavlink_pub.publish(rosmavlink_msg);
 			}
-
-			/**
-			 * Mark the ROS-Message as coming not from LCM
-			 */
-			rosmavlink_msg.fromlcm = true;
-
-			/**
-			 * Send the received MAVLink message to ROS (topic: mavlink, see main())
-			 */
-			mavlink_pub.publish(rosmavlink_msg);
-
 			/**
 			 * Now decode the message to ros format and send
 			 */
@@ -392,6 +397,8 @@ void mavlinkCallback(const mavlink_ros::Mavlink &mavlink_ros_msg)
 
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "mavlink_ros_serial");
+
+	pfixparams = new mavlink_ros::FixParams();
 
 	// Handling Program options
 	static GOptionEntry entries[] =
@@ -447,9 +454,11 @@ int main(int argc, char **argv) {
 
 
 	// SETUP ROS
-	ros::NodeHandle n;
-	mavlink_sub = n.subscribe("/toMAVLINK", 1000, mavlinkCallback);
-	mavlink_pub = n.advertise<mavlink_ros::Mavlink> ("/fromMAVLINK", 1000);
+	if(pfixparams->send_raw_mavlink){
+		ros::NodeHandle n;
+		mavlink_sub = n.subscribe("/toMAVLINK", 1000, mavlinkCallback);
+		mavlink_pub = n.advertise<mavlink_ros::Mavlink> ("/fromMAVLINK", 1000);
+	}
 	//	ros::NodeHandle attitude_nh;
 	//	attitude_pub = attitude_nh.advertise<sensor_msgs::Imu>("/fromMAVLINK/Imu", 1000);
 
@@ -502,6 +511,8 @@ int main(int argc, char **argv) {
 
 	//g_thread_join(serial_thread);
 	//exit(0);
+
+	delete pfixparams;
 
 	return 0;
 }

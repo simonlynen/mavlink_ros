@@ -94,7 +94,9 @@ static inline void mavlink_ros_msg_decode_and_send_${basename}(const mavlink_mes
 {
     if(!publisher_${basename}_advertised){
      // Register all publishers   
-    ${{message:\tmavlink_ros_msg_${name_lower}_publisher = NodeHandleSingleton::Instance().advertise<mavlink_ros::mavlink_ros_msg_${name_lower}> ("/${basename}/${name_lower}", 1000);
+    ${{message:\tstd::cout<<"Registering publisher for ${name_lower}"<<std::endl;
+\tmavlink_ros_msg_${name_lower}_publisher = NodeHandleSingleton::Instance().advertise<mavlink_ros::mavlink_ros_msg_${name_lower}> ("/${basename}/${name_lower}", 1000);
+\tstd::cout<<"Registered publisher for ${name_lower}"<<std::endl;
     }}
     \tpublisher_${basename}_advertised = true;
     }
